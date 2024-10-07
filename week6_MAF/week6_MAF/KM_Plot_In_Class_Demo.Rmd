@@ -1,0 +1,120 @@
+---
+title: "KM_Plot_In_Class_Work"
+author: Jeanne Revilla, adapted from Nicole Black and Kayla Xu
+date: "2024-09-29"
+output: pdf_document
+---
+
+### (0) Setting Up!
+
+##### Setting Your Working Directory
+```{r setup}
+    knitr::opts_knit$set(root.dir = normalizePath("~/490_cluster/analysis_data")) 
+```
+
+##### Download and Load Packages / Data
+```{r}
+
+if (!require("BiocManager")) install.packages("BiocManager")
+
+if (!require("TCGAbiolinks")) BiocManager::install("TCGAbiolinks")
+
+if (!require("survival")) install.packages("survival")
+
+if(!require("survminer")) install.packages("survminer")
+
+if(!require("ggplot2")) install.packages("ggplot2")
+
+library(BiocManager) 
+library(TCGAbiolinks)
+library(survival)
+library(survminer)
+library(ggplot2)
+```
+
+If you don't already have the data, run this code!
+```{r}
+clin_query <- GDCquery(project = "TCGA-BRCA", data.category = "Clinical",
+data.type = "Clinical Supplement", data.format = 'BCR Biotab')
+
+#GDCdownload(clin_query)
+
+clinical.BCRtab.all <- GDCprepare(clin_query)
+clinical <- clinical.BCRtab.all$clinical_patient_brca[-c(1,2),]
+```
+
+
+### (1) Cleaning and Prepping the Data
+For today, we will be creating a KM Plot by Age Category for BRCA data.
+
+##### Clean the age_at_diagnosis column
+```{r}
+# The relevant column is age_at_diagnosis
+
+age_NA_mask <- !is.na(clinical$age_at_diagnosis)
+
+clean_clinical <- clinical[age_NA_mask,]
+
+```
+
+##### Create the age_category column. 
+```{r}
+clean_clinical$age_category <- ifelse(clean_clinical$age_at_diagnosis < 40, "Young", ifelse(clean_clinical$age_at_diagnosis >=65, "Old", "Middle"))
+
+```
+
+##### Create the survival_time column.
+```{r}
+# There are two important columns for this step:
+#         1. days_to_last_followup
+#         2. death_days_to
+
+clean_clinical$survival_time <- ifelse(clean_clinical$death_days_to == "[Not Applicable]", clean_clinical$last_contact_days_to, clean_clinical$death_days_to)
+
+
+clean_clinical$survival_time <- as.numeric(clean_clinical$survival_time)
+
+```
+
+##### Make the death_event column.
+```{r}
+#The relevant column  is vital_status
+
+clean_clinical$death_event <- ifelse(clean_clinical$vital_status == "Dead", T, F)
+
+```
+
+
+### (2) Create Survminer Objects
+```{r}
+survival_object <- Surv(time = clean_clinical$survival_time, 
+                        event = clean_clinical$death_event)
+
+fit_object <- survfit(survival_object ~ clean_clinical$age_category, 
+                      data = clean_clinical)
+  
+```
+
+
+### (3) Create the Plot
+```{r}
+survplot <- ggsurvplot(fit_object, pval = TRUE,
+                       ggtheme = theme(plot.margin 
+                                       = unit(c(1,1,1,1), "cm")), 
+                       legend = "right")
+
+KM_plot <- survplot$plot + theme_bw() + 
+  theme(axis.title = element_text(size=20),
+        axis.text = element_text(size=16),
+        legend.title = element_text(size=14),
+        legend.text = element_text(size=12))
+
+```
+
+
+### (4) View your Plot!
+```{r}
+KM_plot
+
+```
+
