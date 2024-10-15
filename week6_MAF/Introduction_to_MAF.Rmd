@@ -1,0 +1,131 @@
+## Xander
+---
+title: "Introduction to MAF COMPLETED"
+author: Mahija Mogalipuvvu, adapted from Nicole Black, Wade Boohar
+date: 07/17/22
+updated: 10/3/24
+---
+
+***Deliverables***
+- upload this R Notebook to your GitHub and submit the link to your Repo on Brightspace
+- include ALL graphs or figures created in this assignment in a folder with your R notebook with descriptive file names.
+
+We encourage you to work with a partner. Therefore, it is okay if your answers are the same as your partner’s as long as everyone understands it and could explain it in their own words if asked. Each person must individually push their code to Github. *At the top of your R Notebook, write the name of you and your partner(s) as a comment.*
+
+***Complete the following coding activity and answer any following questions as comments in your R Notebook***
+
+In this assignment, you will need to use your skills learned in class to demonstrate your understanding of categorical variables and R data structures.
+
+*Pre-Assignment*
+Load all necessary packages, read in the clinical data.csv file you have in your analysis_data folder, and instantiate the MAF_object.
+
+```{r setup}
+    knitr::opts_knit$set(root.dir = normalizePath("~/490_cluster/analysis_data")) 
+```
+
+```{r}
+library(maftools)
+library(TCGAbiolinks)
+library(ggplot2)
+
+clinical <- read.csv("~/490_cluster/analysis_data/brca_clinical_data.csv")
+
+maf_query <- GDCquery(
+  project = 'TCGA-BRCA',
+  data.category = "Simple Nucleotide Variation",
+  access = "open", # we only have access to somatic mutations which are open access
+  data.type = "Masked Somatic Mutation",
+  workflow.type = "Aliquot Ensemble Somatic Variant Merging and Masking"
+)
+
+# GDCdownload(maf_query)
+
+maf <- GDCprepare(maf_query) # as long as it runs, ignore any errors
+
+maf_object <- read.maf(maf = maf,
+                       clinicalData = clinical, 
+                       isTCGA = TRUE)
+
+```
+
+
+*1*
+Choose a clinical variable (or any variable from clin_rad or clin_drug) to separate your populations into two different groups and rewrite the column or create a new column with that variable as a factor. ***Do not use age or vital_status as your clinical variable.*** Hint: if your variable is continuous, you will need to determine your own cutoffs for the different levels of the factor. If your variable is categorical and has more than two possible values, choose the two that are the most common.
+```{r}
+table(maf_object@clinical.data$method_initial_path_dx)
+
+maf_object@clinical.data$initial_treatment <- ifelse(maf_object@clinical.data$method_initial_path_dx == 'Core needle biopsy', 'Core needle biopsy', ifelse(maf_object@clinical.data$method_initial_path_dx == 'Tumor resection', 'Tumor resection', 'Other'))
+```
+
+*2*
+Create a co-oncoplot with the top 10-20 (you choose) most mutated genes for the two groups. Pick one that has a large discrepancy in % mutated or type of mutations between the groups and research it. 
+Research it. What is the gene used for? Can you think of any reason for the discrepancy?
+```{r}
+biopsy_mask <- ifelse(maf_object@clinical.data$initial_treatment == "Core needle biopsy", T, F)
+biopsy_barcodes <- maf_object@clinical.data$Tumor_Sample_Barcode[biopsy_mask]
+biopsy_maf <- subsetMaf(maf = maf_object, tsb = biopsy_barcodes)
+
+
+resection_mask <- ifelse(maf_object@clinical.data$initial_treatment == "Tumor resection", T, F)
+resection_barcodes <- maf_object@clinical.data$Tumor_Sample_Barcode[resection_mask]
+resection_maf <- subsetMaf(maf = maf_object, tsb = resection_barcodes)
+
+genes <- c("TP53","PIK3CA","TTN","CDH1","GATA3","MUC16","KMT2C","MAP3K1","HMCN1","FLG")
+
+coOncoplot(m1 = biopsy_maf, 
+           m2 = resection_maf, 
+           genes = genes,
+           m1Name = "Core needle biopsy", 
+           m2Name = "Tumor resection",
+           borderCol = NA)
+
+## CDH1 codes for a protein found in epithelial membranes. Mutations are often correlated to breast cancer, which explains the discrepancy between patients undergoing core needle biopsies versus tumor resection.
+```
+
+
+*3*
+Create a contingency table with your variable and chosen gene. Run a Fisher’s Exact Test between presence of mutations for that gene and your clinical variable. Create and save a mosaic plot. 
+Interpret the output of the Fisher’s Exact Test in terms of the odds ratio and p-value.
+```{r}
+maf_object@clinical.data$initial_treatment <- factor(maf_object@clinical.data$initial_treatment)
+maf_object@clinical.data$initial_treatment <- factor(maf_object@clinical.data$)
+
+contig <- table(geneA_maf@clinical.data$initial_treatment, maf_object@clinical.data$geneA_maf)
+somaticInteractions(maf = maf_object,
+                    genes = c('CDH1'),
+                    pvalue = c(0.05, 0.1)) ## these are the default p-value significance levels
+
+
+```
+
+
+*4*
+Subset your maf_object based on your chosen clinical variable and create a co-lollipop plot of your chosen gene divided between the two different clinical variable possibilities. Include descriptive names on your plot.
+Do you notice any difference in terms of mutations (e.g. sites, types, number) between the two populations?
+```{r}
+lollipopPlot2(m1 = biopsy_maf, 
+              m2 = resection_maf, 
+              m1_name = 'Core needle biopsy',
+              m2_name = 'Tumor resection',
+              gene = 'CDH1') ## pick any gene of your choosing to fill in here
+
+## Patients that underwent core needle biopsy were more likely to have mutations in the CDH1 gene. Tumor resection patients had a fewer number of mutation cases, and these mutations were limited to certain domains on the gene. Overall, the rate at which specific mutations are conserved among patients with these treatments is very low, so no correlation is likely (ex. only 6 patients with a specific localized mutation in a sample of 519 patients). 
+```
+
+
+*5*
+Create your Overall_Survival_Status column and create a mafSurvival KM plot based on mutations in your chosen gene.
+Does there seem to be a difference? Hypothesize why or not based on the other analysis you did with the gene above.
+```{r}
+maf_object@clinical.data$survival_time <- ifelse(maf_object@clinical.data$vital_status == "Dead", maf_object@clinical.data$death_days_to, maf_object@clinical.data$last_contact_days_to)
+
+maf_object@clinical.data$death_event <- maf_object@clinical.data$vital_status == "Dead"
+
+mafSurvival(maf = maf_object,
+            genes = "CDH1",
+            time = "survival_time",
+            Status = "death_event", 
+            isTCGA = TRUE)
+
+## There are so few cases of patients with CDH1 mutations with available survival times that there is no significant difference based on this data (steps are too large, and the p value is not less than 0.05).
+```
