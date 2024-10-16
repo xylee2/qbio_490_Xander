@@ -48,7 +48,6 @@ maf_object <- read.maf(maf = maf,
 
 ```
 
-
 *1*
 Choose a clinical variable (or any variable from clin_rad or clin_drug) to separate your populations into two different groups and rewrite the column or create a new column with that variable as a factor. ***Do not use age or vital_status as your clinical variable.*** Hint: if your variable is continuous, you will need to determine your own cutoffs for the different levels of the factor. If your variable is categorical and has more than two possible values, choose the two that are the most common.
 ```{r}
@@ -81,23 +80,26 @@ coOncoplot(m1 = biopsy_maf,
 
 ## CDH1 codes for a protein found in epithelial membranes. Mutations are often correlated to breast cancer, which explains the discrepancy between patients undergoing core needle biopsies versus tumor resection.
 ```
-
-
 *3*
 Create a contingency table with your variable and chosen gene. Run a Fisher’s Exact Test between presence of mutations for that gene and your clinical variable. Create and save a mosaic plot. 
 Interpret the output of the Fisher’s Exact Test in terms of the odds ratio and p-value.
 ```{r}
-maf_object@clinical.data$initial_treatment <- factor(maf_object@clinical.data$initial_treatment)
-maf_object@clinical.data$initial_treatment <- factor(maf_object@clinical.data$)
+gene_data <- as.data.frame(maf_object@data)
+CDH1 <- ifelse(maf_object@data$Hugo_Symbol == "CDH1",T,F)
 
-contig <- table(geneA_maf@clinical.data$initial_treatment, maf_object@clinical.data$geneA_maf)
-somaticInteractions(maf = maf_object,
-                    genes = c('CDH1'),
-                    pvalue = c(0.05, 0.1)) ## these are the default p-value significance levels
+CDH1_barcodes <- maf_object@data$Tumor_Sample_Barcode[CDH1]
+
+maf_object@clinical.data$CDH1_mutation <- ifelse(maf_object@clinical.data$Tumor_Sample_Barcode %in% CDH1_barcodes, "CDH1 Mutation", "No CDH1 Mutation")
+
+maf_object@clinical.data$initial_treatment <- factor(maf_object@clinical.data$initial_treatment)
+maf_object@clinical.data$CDH1_mutation <- factor(maf_object@clinical.data$CDH1_mutation)
+
+contig <- table(maf_object@clinical.data$initial_treatment,maf_object@clinical.data$CDH1_mutation)
+
+mosaicplot(contig)
 
 
 ```
-
 
 *4*
 Subset your maf_object based on your chosen clinical variable and create a co-lollipop plot of your chosen gene divided between the two different clinical variable possibilities. Include descriptive names on your plot.
@@ -111,8 +113,6 @@ lollipopPlot2(m1 = biopsy_maf,
 
 ## Patients that underwent core needle biopsy were more likely to have mutations in the CDH1 gene. Tumor resection patients had a fewer number of mutation cases, and these mutations were limited to certain domains on the gene. Overall, the rate at which specific mutations are conserved among patients with these treatments is very low, so no correlation is likely (ex. only 6 patients with a specific localized mutation in a sample of 519 patients). 
 ```
-
-
 *5*
 Create your Overall_Survival_Status column and create a mafSurvival KM plot based on mutations in your chosen gene.
 Does there seem to be a difference? Hypothesize why or not based on the other analysis you did with the gene above.
