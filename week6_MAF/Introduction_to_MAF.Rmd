@@ -78,7 +78,7 @@ coOncoplot(m1 = biopsy_maf,
            m2Name = "Tumor resection",
            borderCol = NA)
 
-## CDH1 codes for a protein found in epithelial membranes. Mutations are often correlated to breast cancer, which explains the discrepancy between patients undergoing core needle biopsies versus tumor resection.
+## CDH1 codes for a protein found in epithelial membranes. Mutations are often found in breast cancer, which explains why patients treated with core needle biopsies had a relatively greater occurrence of mutated CDH1 than those treated with tumor resection.
 ```
 *3*
 Create a contingency table with your variable and chosen gene. Run a Fisher’s Exact Test between presence of mutations for that gene and your clinical variable. Create and save a mosaic plot. 
@@ -98,7 +98,11 @@ contig <- table(maf_object@clinical.data$initial_treatment,maf_object@clinical.d
 
 mosaicplot(contig)
 
+fisher_test <- fisher.test(contig)
+fisher_test
+fisher_test$p.value
 
+## A low p-value of 0.0005512315 indicates a strong correlation between the presence of mutated CDH1 and initial patient treatment. Most patients did not carry a CDH1 mutation, but (as supported by the coOncoplot above) those with the mutation were most likely to be treated with core needle biopsy.  
 ```
 
 *4*
@@ -111,7 +115,7 @@ lollipopPlot2(m1 = biopsy_maf,
               m2_name = 'Tumor resection',
               gene = 'CDH1') ## pick any gene of your choosing to fill in here
 
-## Patients that underwent core needle biopsy were more likely to have mutations in the CDH1 gene. Tumor resection patients had a fewer number of mutation cases, and these mutations were limited to certain domains on the gene. Overall, the rate at which specific mutations are conserved among patients with these treatments is very low, so no correlation is likely (ex. only 6 patients with a specific localized mutation in a sample of 519 patients). 
+## Patients treated with core needle biopsy were most likely to carry mutations in the CDH1 gene. Tumor resection patients had a fewer number of mutation cases, and these mutations were limited to certain domains on the gene. Overall, the rate at which specific mutations were  conserved among patients with both treatments was very low, so no correlation is likely (ex. only 6 patients with a specific localized mutation were present in a sample of 519 patients). 
 ```
 *5*
 Create your Overall_Survival_Status column and create a mafSurvival KM plot based on mutations in your chosen gene.
@@ -127,5 +131,5 @@ mafSurvival(maf = maf_object,
             Status = "death_event", 
             isTCGA = TRUE)
 
-## There are so few cases of patients with CDH1 mutations with available survival times that there is no significant difference based on this data (steps are too large, and the p value is not less than 0.05).
+## At first glance, it seems that patients with wild type CDH1 have a lower survival probability than those with mutated CDH1. This is illogical, even though the p-value is relatively low. There  needs to be more mutant data to validate this claim.
 ```
